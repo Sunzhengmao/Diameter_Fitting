@@ -1,0 +1,5 @@
+../image/l1.bmp
+../image/l2.bmp
+../image/l4.bmp
+../image/l6.bmp
+../image/l7.bmp
