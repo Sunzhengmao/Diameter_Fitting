@@ -1,0 +1,22 @@
+%YAML:1.0
+---
+calibration_time: "2019年11月22日 星期五 13时03分10秒"
+image_width: 2448
+image_height: 2048
+board_width: 18
+board_height: 13
+square_size: 1.
+flags: 0
+camera_matrix: !!opencv-matrix
+   rows: 3
+   cols: 3
+   dt: d
+   data: [ 3.5160515542074281e+03, 0., 1.2469173695189152e+03, 0.,
+       3.5161827699439650e+03, 1.0397558943239048e+03, 0., 0., 1. ]
+distortion_coefficients: !!opencv-matrix
+   rows: 5
+   cols: 1
+   dt: d
+   data: [ -8.8718793695325593e-02, 1.9855877482478457e-01,
+       2.3177751947868616e-04, 1.2462948675649266e-03, 0. ]
+avg_reprojection_error: 8.2564453626054815e-02

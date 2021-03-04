@@ -1,0 +1,202 @@
+    //试一试极值法
+    Mat src = this->_imgLeft;
+    Mat dst = src.clone();
+//    cvtColor(dst, dst, CV_BGR2GRAY);
+    unsigned char  max = 0;
+    unsigned int y = 0;
+    for (unsigned int i = 0;i<dst.rows;i++)
+    {
+        for (unsigned int j = 0;j<dst.cols;j++)
+        {
+            unsigned char  current = dst.at<uchar>(i, j);
+            if (current>max)
+            {
+                max = current;
+                y = j;
+            }
+        }
+        if (max>100)
+        {
+            circle(src, Point(i, y), 1, Scalar(0, 0, 255));
+        }
+        max = 0;
+        y = 0;
+        imshow("1", src);
+    }
+    imwrite("jizhi.jpg",src);
+
+
+
+        //灰度重心法
+        Mat grayimg = this->_imgLeft.clone();
+        GaussianBlur(grayimg, grayimg, Size(0, 0), 6, 6);
+        //遍历每一列
+        float x0 = 0;
+        for (int i = 0;i < grayimg.cols;i++) {
+            float sum_value = 0;
+            float sum_valuecoor = 0;
+            vector<float>current_value;
+            vector<float>current_coordinat;
+            for (int j = 0;j < grayimg.rows;j++) {
+                float current = grayimg.at<uchar>(j, i);
+                //将符合阈值的点灰度值和坐标存入数组
+                if (current > 30) {
+                    current_value.push_back(current);
+                    current_coordinat.push_back(j);
+                }
+            }
+            //计算灰度重心
+            for (int k = 0;k < current_value.size();k++) {
+                sum_valuecoor += current_value[k]*current_coordinat[k];
+                sum_value += current_value[k];
+            }
+            float x = sum_valuecoor / sum_value;
+            x0 = x;
+            circle(grayimg, Point(i, x), 1, Scalar(0, 0, 255), -1, 8);
+            current_value.clear();
+            current_coordinat.clear();
+        }
+        imwrite("zhongxin.jpg", grayimg);
+
+
+void generateCloud::stegerLine(Mat &src, vector<Point2d> &point,int thresh) {
+        Mat img;
+        Mat img0 = src;
+        img = src.clone();
+
+        //高斯滤波
+        img.convertTo(img, CV_32FC1);
+        GaussianBlur(img, img, Size(3, 3), 6, 6);
+
+        //一阶偏导数
+        Mat m1, m2;
+        m1 = (Mat_<float>(1, 2) << 1, -1);  //x偏导
+        m2 = (Mat_<float>(2, 1) << 1, -1);  //y偏导
+
+        Mat dx, dy;
+        filter2D(img, dx, CV_32FC1, m1);
+        filter2D(img, dy, CV_32FC1, m2);
+
+        //二阶偏导数
+        Mat m3, m4, m5;
+        m3 = (Mat_<float>(1, 3) << 1, -2, 1);   //二阶x偏导
+        m4 = (Mat_<float>(3, 1) << 1, -2, 1);   //二阶y偏导
+        m5 = (Mat_<float>(2, 2) << 1, -1, -1, 1);   //二阶xy偏导
+
+        Mat dxx, dyy, dxy;
+        filter2D(img, dxx, CV_32FC1, m3);
+        filter2D(img, dyy, CV_32FC1, m4);
+        filter2D(img, dxy, CV_32FC1, m5);
+
+        //hessian矩阵
+        double maxD = -1;
+        int imgcol = img.cols;
+        int imgrow = img.rows;
+        vector<double> Pt;
+        for (int i=0;i<imgcol;i++)
+        {
+            for (int j=0;j<imgrow;j++)
+            {
+                if (img0.at<uchar>(j,i)>thresh)
+                {
+                    Mat hessian(2, 2, CV_32FC1);
+                    hessian.at<float>(0, 0) = dxx.at<float>(j, i);
+                    hessian.at<float>(0, 1) = dxy.at<float>(j, i);
+                    hessian.at<float>(1, 0) = dxy.at<float>(j, i);
+                    hessian.at<float>(1, 1) = dyy.at<float>(j, i);
+
+                    Mat eValue;
+                    Mat eVectors;
+                    eigen(hessian, eValue, eVectors);
+
+                    double nx, ny;
+                    double fmaxD = 0;
+                    if (fabs(eValue.at<float>(0,0))>= fabs(eValue.at<float>(1,0)))  //求特征值最大时对应的特征向量
+                    {
+                        nx = eVectors.at<float>(0, 0);
+                        ny = eVectors.at<float>(0, 1);
+                        fmaxD = eValue.at<float>(0, 0);
+                    }
+                    else
+                    {
+                        nx = eVectors.at<float>(1, 0);
+                        ny = eVectors.at<float>(1, 1);
+                        fmaxD = eValue.at<float>(1, 0);
+                    }
+
+                    double t = -(nx*dx.at<float>(j, i) + ny*dy.at<float>(j, i)) / (nx*nx*dxx.at<float>(j,i)+2*nx*ny*dxy.at<float>(j,i)+ny*ny*dyy.at<float>(j,i));
+
+                    if (fabs(t*nx)<=0.5 && fabs(t*ny)<=0.5)
+                    {
+                        Point2d tmp;
+                        tmp.x = i;
+                        tmp.y = j;
+                        point.push_back(tmp);
+                    }
+                }
+            }
+        }
+
+
+        Mat newing(Size(2448,2048),CV_8SC3,Scalar(0,0,0));
+        for (int k = 0;k<point.size();k++)
+        {
+            circle(newing, point[k], 5, Scalar(255, 255, 0),1);
+        }
+
+        imwrite("result.jpg", newing);
+}
+
+
+void showPointCloud(const vector<Vector4d, Eigen::aligned_allocator<Vector4d>> &pointcloud) {
+
+    if (pointcloud.empty()) {
+        cerr << "Point cloud is empty!" << endl;
+        return;
+    }
+
+    pangolin::CreateWindowAndBind("Point Cloud Viewer", 1024, 768);
+    glEnable(GL_DEPTH_TEST);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    pangolin::OpenGlRenderState s_cam(
+            pangolin::ProjectionMatrix(1024, 768, 500, 500, 512, 389, 0.1, 1000),
+            pangolin::ModelViewLookAt(0, -0.1, -1.8, 0, 0, 0, 0.0, -1.0, 0.0)
+    );
+
+    pangolin::View &d_cam = pangolin::CreateDisplay()
+            .SetBounds(0.0, 1.0, pangolin::Attach::Pix(175), 1.0, -1024.0f / 768.0f)
+            .SetHandler(new pangolin::Handler3D(s_cam));
+
+    while (pangolin::ShouldQuit() == false) {
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+        d_cam.Activate(s_cam);
+        glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+
+        glPointSize(2);
+        glBegin(GL_POINTS);
+        for (auto &p: pointcloud) {
+            glColor3f(p[3], p[3], p[3]);
+            glVertex3d(p[0], p[1], p[2]);
+        }
+        glEnd();
+        pangolin::FinishFrame();
+        usleep(5000);   // sleep 5 ms
+    }
+    return;
+}
+
+
+ data: [ 1., 0., 0., -1.0763367662429810e+03,
+        0., 1., 0.,-1.0223808975219727e+03,
+        0., 0., 0., -2.6225240267425339e+05,
+        0.,0., 4.4146426046369194e-03, 0. ]
+
+    data: [ -2.6225240267425339e+05,                        0., 1.0763367662429810e+03,  5.9405126566485047e+07,
+                                  0., -2.6225240267425339e+05,  1.0223808975219727e+03,  0.,
+                                  0.,                       0.,                      1., 0. ]
+
+
+                                  /usr/include/vtk-6.2/vtkAtomicInt.h
